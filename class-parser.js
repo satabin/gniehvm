@@ -199,15 +199,13 @@ Parser.parse = function(classBuffer/*: ArrayBuffer */) {
   }
 
   // read the attributes
-  var attr = this.parseAttributes(currentOffset);
-  currentOffset = attr.newOffset;
-  clazz.attributes = attr.attributes;
+  currentOffset = this.parseAttributes(currentOffset, clazz);
   // TODO check the attributes
 
   return clazz;
 };
 
-Parser.parseAttributes = function(currentOffset/*: int */) {
+Parser.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/) {
   var attributes_count = this.view.getUint16(currentOffset);
   currentOffset += 2;
   var attributes = [];
@@ -253,6 +251,7 @@ Parser.parseAttributes = function(currentOffset/*: int */) {
         }
         currentOffset += 4;
         // TODO read the instructions.
+
         real_index++;
         break;
       case ATTR_Exceptions:
@@ -266,8 +265,7 @@ Parser.parseAttributes = function(currentOffset/*: int */) {
         currentOffset += attribute_length;
     }
   }
-  return {
-    'newOffset': currentOffset,
-    'attributes': attributes
-  };
+  clazz.attributes = attributes;
+
+  return currentOffset;
 }
