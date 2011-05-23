@@ -346,7 +346,59 @@ parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Clas
         offset += 2;
         break;
       case OP_tableswitch:
-        // TODO
+        while((offset % 4) != 0) {
+          // at most three null bytes to align instruction
+          if(input.getUint8(offset) != 0) {
+            throw "Wrong bytecode format at " + offset + ". 0x00 is expected";
+          }
+          offset++;
+        }
+        var instruction = instructions[i];
+        instruction.sdefault = input.getInt32(offset);
+        offset += 4;
+        instruction.low = input.getInt32(offset);
+        offset += 4;
+        instruction.high = input.getInt32(offset);
+        if(instruction.low > instruction.high) {
+          throw "Wrong bytecode format at " + (offset - 4) + ". Low offset cannot be greater than high offset";
+        }
+        offset += 4;
+        var jumps = [];
+        for(j = 0; j < (instruction.high - instruction.low + 1); j++) {
+          jumps[j] = input.getInt32(offset);
+          offset += 4;
+        }
+        instruction.jumps = jumps;
+        break;
+      case OP_wide:
+        var opcode_w = input.getInt8(offset);
+        offset++;
+        switch(opcode_w) {
+          case OP_iload:
+          case OP_fload:
+          case OP_aload:
+          case OP_lload:
+          case OP_dload:
+          case OP_istore:
+          case OP_fstore:
+          case OP_astore:
+          case OP_lstore:
+          case OP_dstore:
+          case OP_ret:
+            instructions[i].opcode_w = opcode_w;
+            instructions[i].index = input.getUint16(offset);
+            offset += 2;
+            break;
+          case OP_iinc:
+            instructions[i].opcode_w = opcode_w;
+            instructions[i].index = input.getUint16(offset);
+            offset += 2;
+            instructions[i].sconst = input.getInt16(offset);
+            offset += 2;
+            break;
+          default:
+            throw "Wrong bytecode format at " + (offset - 1) + ". opcode not allowed after wide: " + opcode_w;
+        }
         break;
       default:
         // do nothing
