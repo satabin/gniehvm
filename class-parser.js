@@ -20,6 +20,9 @@
     	attribute_info attributes[attributes_count];
     }</code>
  */
+
+include("opcodes.js");
+
 Class = function(){};
 Parser = function(input/*: ArrayBuffer */){
   this.view = new DataView(input);
