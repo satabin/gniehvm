@@ -20,8 +20,7 @@
     	attribute_info attributes[attributes_count];
     }</code>
  */
-
-include("opcodes.js");
+load("opcodes.js");
 
 Class = function(){};
 Parser = function(input/*: ArrayBuffer */){
@@ -121,7 +120,7 @@ Parser.parse = function(classBuffer/*: ArrayBuffer */) {
         constants[i].length = this.view.getUint16(currentOffset);
         currentOffset += 2;
         var bytes = [];
-        var result "";
+        var result = "";
         for(j = 0; j < constants[i].length; j++) {
           var first = this.view.getUint8(currentOffset);
           currentOffset++;

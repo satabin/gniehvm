@@ -119,7 +119,7 @@ OP_irem = 0x70;
 OP_lrem = 0x71;
 OP_frem = 0x72;
 OP_drem = 0x73;
-(0x74).......ineg
+//0x74
 OP_lneg = 0x75;
 OP_fneg = 0x76;
 OP_dneg = 0x77;
@@ -289,7 +289,7 @@ parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Clas
       case OP_iinc:
         instructions[i].index = input.getUint8(offset);
         offset++;
-        instructions[i].sconst = (int)input.getInt8(offset);
+        instructions[i].sconst = input.getInt8(offset);
         offset++;
         break;
       case OP_invokeinterface:
@@ -336,13 +336,13 @@ parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Clas
       case OP_newarray:
         var atype = input.getUint8(offset);
         if(atype < T_BOOLEAN || atype > T_LONG) {
-          trow "Wrong bytecode format at " + offset + ". Unknown atype: " + atype;
+          throw "Wrong bytecode format at " + offset + ". Unknown atype: " + atype;
         }
         instructions[i].atype = atype;
         offset++;
         break;
       case OP_sipush:
-        instructions[i].value = (int)input.getInt16(offset);
+        instructions[i].value = input.getInt16(offset);
         offset += 2;
         break;
       case OP_tableswitch:
