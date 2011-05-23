@@ -205,3 +205,152 @@ OP_ifnull = 0xc6;
 OP_ifnonnull = 0xc7;
 OP_goto_w = 0xc8;
 OP_jsr_w = 0xc9;
+
+// atype
+T_BOOLEAN = 4;
+T_CHAR = 5;
+T_FLOAT = 6;
+T_DOUBLE = 7;
+T_BYTE = 8;
+T_SHORT = 9;
+T_INT = 10;
+T_LONG = 11;
+
+parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Class*/) {
+  var offset = 0;
+  var i = 0;
+  var instructions = [];
+  while(offset < length) {
+    var opcode = input.getUint8(offset);
+    offset++;
+    instructions[i] = new Instruction(opcode);
+    switch(opcode) {
+      case OP_aload:
+      case OP_astore:
+      case OP_dload:
+      case OP_dstore:
+      case OP_fload:
+      case OP_fstore:
+      case OP_iload:
+      case OP_istore:
+      case OP_ldc:
+      case OP_lload:
+      case OP_lstore:
+      case OP_ret:
+        instructions[i].index = input.getUint8(offset);
+        offset++;
+        break;
+      case OP_anewarray:
+      case OP_checkcast:
+      case OP_getfield:
+      case OP_getstatic:
+      case OP_instanceof:
+      case OP_invokespecial:
+      case OP_invokestatic:
+      case OP_invokevirtual:
+      case OP_ldc_w:
+      case OP_ldc2_w:
+      case OP_new:
+      case OP_putfield:
+      case OP_putstatic:
+        instructions[i].index = input.getUint16(offset);
+        offset += 2;
+        break;
+      case OP_bipush:
+        instructions[i].sbyte = input.getInt8(offset);
+        offset++;
+        break;
+      case OP_goto:
+      case OP_if_acmpeq:
+      case OP_if_acmpne:
+      case OP_if_icmpeq:
+      case OP_if_icmpne:
+      case OP_if_icmplt:
+      case OP_if_icmpge:
+      case OP_if_icmpgt:
+      case OP_if_icmple:
+      case OP_ifeq:
+      case OP_ifne:
+      case OP_iflt:
+      case OP_ifge:
+      case OP_ifgt:
+      case OP_ifle:
+      case OP_ifnonnull:
+      case OP_ifnull:
+      case OP_jsr:
+        instructions[i].branchoffset = input.getInt16(offset);
+        offset += 2;
+        break;
+      case OP_goto_w:
+      case OP_jsr_w:
+        instructions[i].branchoffset = input.getInt32(offset);
+        offset += 4;
+        break;
+      case OP_iinc:
+        instructions[i].index = input.getUint8(offset);
+        offset++;
+        instructions[i].sconst = (int)input.getInt8(offset);
+        offset++;
+        break;
+      case OP_invokeinterface:
+        instructions[i].index = input.getUint16(offset);
+        offset += 2;
+        instructions[i].count = input.getUint8(offset);
+        offset++;
+        if(input.getUint8(offset) != 0) {
+          throw "Wrong bytecode format at " + offset + ". 0 is expected";
+        }
+        offset++;
+        break;
+      case OP_lookupswitch:
+        while((offset % 4) != 0) {
+          // at most three null bytes to align instruction
+          if(input.getUint8(offset) != 0) {
+            throw "Wrong bytecode format at " + offset + ". 0x00 is expected";
+          }
+          offset++;
+        }
+        var instruction = instructions[i];
+        instruction.sdefault = input.getInt32(offset);
+        offset += 32;
+        instruction.npairs = input.getInt32(offset);
+        instruction.pairs = []
+        offset += 32;
+        for(j = 0; j < instruction.npairs; j++) {
+          var match = input.getInt32(offset);
+          offset += 32;
+          var offs = input.getInt32(offset);
+          offset += 32;
+          instruction.pairs[j][match] = offs;
+        }
+        break;
+      case OP_multianewarray:
+        instructions[i].index = input.getUint16(offset);
+        offset += 2;
+        instructions[i].dimensions = input.getUint8(offset);
+        if(instructions[i].dimensions < 1) {
+          throw "Wrong bytecode format at " + offset + ". Array dimensions should be at least 1";
+        }
+        offset++;
+        break;
+      case OP_newarray:
+        var atype = input.getUint8(offset);
+        if(atype < T_BOOLEAN || atype > T_LONG) {
+          trow "Wrong bytecode format at " + offset + ". Unknown atype: " + atype;
+        }
+        instructions[i].atype = atype;
+        offset++;
+        break;
+      case OP_sipush:
+        instructions[i].value = (int)input.getInt16(offset);
+        offset += 2;
+        break;
+      case OP_tableswitch:
+        // TODO
+        break;
+      default:
+        // do nothing
+    }
+    i++;
+  }
+}
