@@ -20,11 +20,12 @@
     	attribute_info attributes[attributes_count];
     }</code>
  */
-load("opcodes.js");
+load("instructions.js");
 
 Class = function(){};
-Parser = function(input/*: ArrayBuffer */){
-  this.view = new DataView(input);
+Parser = function(buffer/*: ArrayBuffer */){
+  this.buffer = buffer;
+  this.view = new DataView(buffer);
 };
 
 // constant types
@@ -47,10 +48,13 @@ ACC_PROTECTED = 0x0004;
 ACC_STATIC = 0x0008;
 ACC_FINAL = 0x0010;
 ACC_SUPER = 0x0020;
+ACC_SYNCHRONIZED = 0x0020;
 ACC_VOLATILE = 0x0040;
 ACC_TRANSIENT = 0x0080;
+ACC_NATIVE = 0x0100;
 ACC_INTERFACE = 0x0200;
 ACC_ABSTRACT = 0x0400;
+ACC_STRICT = 0x0800;
 
 // attributes
 ATTR_ConstantValue = "ConstantValue";
@@ -183,31 +187,60 @@ Parser.parse = function(classBuffer/*: ArrayBuffer */) {
   currentOffset += 2;
   clazz.fields = [];
   for(i = 0; i < fields_count; i++) {
-    clazz.fields[i].access_flags = this.view.getUint16(currentOffset);
+    var field = {}
+    field.access_flags = this.view.getUint16(currentOffset);
     currentOffset += 2;
     var name = clazz.constants[this.view.getUint16(currentOffset)];
     if(name.type !== CONSTANT_Utf8) {
       throw "Wrong bytecode format at " + currentOffset + ". This should be a String";
     }
     currentOffset += 2;
-    clazz.fields[i].name = name.value
+    field.name = name.value
     var descriptor = clazz.constants[this.view.getUint16(currentOffset)];
     if(descriptor.type !== CONSTANT_Utf8) {
       throw "Wrong bytecode format at " + currentOffset + ". This should be a String";
     }
     currentOffset += 2;
-    clazz.fields[i].descriptor = descriptor.value;
-
+    field.descriptor = descriptor.value;
+    // read the attributes
+    currentOffset = this.parseAttributes(currentOffset, clazz, false, field);
+    clazz.fields[i] = field;
   }
 
-  // read the attributes
-  currentOffset = this.parseAttributes(currentOffset, clazz);
-  // TODO check the attributes
+  // read the methods
+  var methods_count = this.view.getUint16(currentOffset);
+  currentOffset += 2;
+  clazz.methods = [];
+  for(i = 0; i < methods_count; i++) {
+    var method = {};
+    method.access_flags = this.view.getUint16(currentOffset);
+    currentOffset += 2;
+    var name = clazz.constants[this.view.getUint16(currentOffset)];
+    if(name.type !== CONSTANT_Utf8) {
+      throw "Wrong bytecode format at " + currentOffset + ". This should be a String";
+    }
+    currentOffset += 2;
+    method.name = name.value;
+    var descriptor = clazz.constants[this.view.getUint16(currentOffset)];
+    if(descriptor.type !== CONSTANT_Utf8) {
+      throw "Wrong bytecode format at " + currentOffset + ". This should be a String";
+    }
+    currentOffset += 2;
+    method.descriptor = descriptor.name;
+    // read the attributes
+    currentOffset = this.parseAttributes(currentOffset, clazz, false, method);
+
+    clazz.methods[i] = method;
+  }
+
+  // TODO for the moment we ignore all class attributes because they are only debug value
+  // TODO add support for it later.
+  currentOffset = this.parseAttributes(currentOffset, clazz, true);
 
   return clazz;
 };
 
-Parser.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/) {
+Parser.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/, ignore/*: Boolean*/, object/*: Any = null*/) {
   var attributes_count = this.view.getUint16(currentOffset);
   currentOffset += 2;
   var attributes = [];
@@ -253,11 +286,52 @@ Parser.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/) {
         }
         currentOffset += 4;
         // TODO read the instructions.
+        attributes[real_index].instructions = parseInstructions(new DataView(this.buffer, currentOffset, code_length));
+        currentOffset += code_length;
+        var exception_table_length = this.view.getUint16(currentOffset);
+        currentOffset += 2;
+        var exceptions = []
+        for(j = 0; j < exception_table_length; j++) {
+          var exception = {};
+          exception.start_pc = this.view.getUint16(currentOffset);
+          currentOffset += 2;
+          exception.end_pc = this.view.getUint16(currentOffset);
+          currentOffset += 2;
+          exception.handler_pc = this.view.getUint16(currentOffset);
+          currentOffset += 2;
+          var catch_type = this.view.getUint16(currentOffset);
+          if(catch_type != 0) {
+            var type = clazz.constants[catch_type];
+            if(type.type != CONSTANT_Class) {
+              throw "Wrong bytecode format at " + currentOffset + ". The catch type should be a class";
+            }
+            exception.catch_type = type.name_index;
+          }
+          exceptions = exception;
+          currentOffset += 2;
+        }
+        attributes[real_index].exception_table = exceptions;
+        var attribute_count = this.view.getUint16(currentOffset);
+        currentOffset += 2;
+        // TODO these are only debug attributes, ignore them for now, but implement later
+        currentOffset = parseAttributes(currentOffset, clazz, true);
 
         real_index++;
         break;
       case ATTR_Exceptions:
-        // TODO
+        var number_of_exceptions = this.view.getUint16(currentOffset);
+        currentOffset += 2;
+        var exception_table = [];
+        for(j = 0; j < number_of_exceptions; j++) {
+          var exception = clazz.constants[this.view.getUint16(currentOffset)];
+          if(exception.type != CONSTANT_Class) {
+            throw "Wrong bytecode format at " + currentOffset + ". Thrown exceptions must be classes";
+          }
+          currentOffset += 2;
+          exception_table[j] = exception;
+        }
+        attributes[real_index].exception_table = exception_table;
+
         real_index++;
         break;
       default:
@@ -267,7 +341,9 @@ Parser.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/) {
         currentOffset += attribute_length;
     }
   }
-  clazz.attributes = attributes;
+  if(!ignore) {
+    object.attributes = attributes;
+  }
 
   return currentOffset;
 }
