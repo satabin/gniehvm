@@ -154,7 +154,7 @@ Parser.prototype.parse = function() {
             j += 2;
           }
         }
-        document.write(i + ' -> ' + result.replace('<', '&lt;').replace('>', '&gt;') + '<br />');
+//        document.write(i + ' -> ' + result.replace('<', '&lt;').replace('>', '&gt;') + '<br />');
         constants[i].value = result;
         constants[i].bytes = bytes;
         break;
@@ -180,7 +180,7 @@ Parser.prototype.parse = function() {
   clazz.interfaces = [];
   for(var i = 0; i < interfaces_count; i++) {
     var idx = this.view.getUint16(currentOffset);
-    var class_info = clazz.constants[idx];
+    var class_info = clazz.constants[idx - 1];
     if(class_info.type !== CONSTANT_Class) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a Class");
     }
@@ -264,19 +264,24 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
     currentOffset += 2;
     var attribute_length = this.view.getUint32(currentOffset);
     currentOffset += 4;
-    attributes[real_index] = {}
+    attributes[real_index] = {'name': attribute_name.value};
     switch(attribute_name.value) {
       case ATTR_ConstantValue:
         if(attribute_length !== 2) {
           throw new Error("Wrong bytecode format at " + (currentOffset - 4) + ". Attribute length should be 2 for a ConstantValue attribute");
         }
         var constantvalue_index = this.view.getUint16(currentOffset);
-        switch(clazz.constants[constantvalue_index - 1].type) {
+        var constantvalue = clazz.constants[constantvalue_index - 1];
+        switch(constantvalue.type) {
           case CONSTANT_Long:
-          case CONSTANT_Float:
           case CONSTANT_Double:
+            
+            break;
+          case CONSTANT_Float:
           case CONSTANT_Integer:
+            break;
           case CONSTANT_String:
+            attributes[real_index].constantvalue = constantvalue.value;
             // ok
             break;
           default:
@@ -284,7 +289,6 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
         }
         currentOffset += 2;
         attributes[real_index].type = attribute_name.value;
-        attributes[real_index].constantvalue_index = constantvalue_index;
         real_index++;
         break;
       case ATTR_Code:
