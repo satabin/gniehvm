@@ -14,4 +14,4 @@ GniehVM = function(options/*: Array[String]*/) {
 }
 
 vm = new GniehVM();
-vm.downloadClassFile("http://localhost/Test.class");
+vm.downloadClassFile("http://localhost/GTuringCompiler.class");
