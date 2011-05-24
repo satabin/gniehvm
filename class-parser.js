@@ -23,7 +23,7 @@
 Class = function(){};
 Parser = function(buffer/*: ArrayBuffer */){
   this.buffer = buffer;
-  this.view = new DataView(buffer);
+  this.view = new jDataView(buffer);
 };
 
 // constant types
@@ -66,11 +66,11 @@ ATTR_LocalVariableTable = "LocalVariableTable";
 ATTR_Deprecated = "Deprecated";
 
 /* parses the stream and returns the corresponding class object */
-Parser.parse = function() {
+Parser.prototype.parse = function() {
   var clazz = new Class();
 	// https://developer.mozilla.org/en/JavaScript_typed_arrays/ArrayBufferView
 	var magic = this.view.getUint32(0);
-  if(magic[0] != 0xCAFEBABE) {
+  if(magic != 0xCAFEBABE) {
     // wrong magic number...
     throw "Wrong magic number";
   }
@@ -81,9 +81,11 @@ Parser.parse = function() {
   var constants = [];
   for(i = 0; i < constant_pool_count - 1; i++) {
     // read the constant pool
-    constants[i].type = this.view.getUint8(currentOffset);
+    constants[i] = {};
+    var type = this.view.getUint8(currentOffset);
+    constants[i].type = type;
     currentOffset++;
-    switch(this.view.getUint8(currentOffset)) {
+    switch(type) {
       case CONSTANT_Class:
         constants[i].name_index = this.view.getUint16(currentOffset);
         currentOffset += 2;
@@ -119,37 +121,39 @@ Parser.parse = function() {
         currentOffset += 2;
         break;
       case CONSTANT_Utf8:
-        constants[i].length = this.view.getUint16(currentOffset);
+        var string_length = this.view.getUint16(currentOffset);
+        constants[i].length = string_length;
         currentOffset += 2;
         var bytes = [];
         var result = "";
-        for(j = 0; j < constants[i].length; j++) {
+        for(j = 0; j < string_length; j++) {
           var first = this.view.getUint8(currentOffset);
           currentOffset++;
-          if(first & 0x80 == 0) {
+          if((first & 0x80) == 0x00) {
             result += String.fromCharCode(first & 0x7f);
-            bytes[j] = (byte)(first & 0x7f);
-          } else if(first & 0xe0 == 0xc0) {
+            bytes[j] = first & 0x7f;
+          } else if((first & 0xc0) == 0xc0) {
             var second = this.view.getUint8(currentOffset);
             currentOffset++;
             result += String.fromCharCode(((first & 0x1f) << 6) + (second & 0x3f));
-            bytes[j] = (byte)(first & 0x1f);
-            bytes[j+1] = (byte)(second & 0x3f);
+            bytes[j] = first & 0x1f;
+            bytes[j+1] = second & 0x3f;
             j++;
-          } else if(first & 0xf0 == 0xe0) {
+          } else if((first & 0xe0) == 0xe0) {
             var second = this.view.getUint8(currentOffset);
             currentOffset++;
             var third = this.view.getUint8(currentOffset);
             currentOffset++;
             result += String.fromCharCode(((first & 0xf) << 12) + ((second & 0x3f) << 6) + (third & 0x3f));
-            bytes[j] = (byte)(first & 0xf);
-            bytes[j+1] = (byte)(second & 0x3f);
-            bytes[j+2] = (byte)(third & 0x3f);
+            bytes[j] = first & 0xf;
+            bytes[j+1] = second & 0x3f;
+            bytes[j+2] = third & 0x3f;
             j += 2;
           }
-          constants[i].value = result;
-          constants[i].bytes = bytes;
         }
+        document.write(i + ' -> ' + result + '<br />');
+        constants[i].value = result;
+        constants[i].bytes = bytes;
         break;
     }
   }
@@ -172,7 +176,8 @@ Parser.parse = function() {
   currentOffset += 2;
   clazz.interfaces = [];
   for(i = 0; i < interfaces_count; i++) {
-    var class_info = clazz.constants[this.view.getUint16(currentOffset)];
+    var idx = this.view.getUint16(currentOffset);
+    var class_info = clazz.constants[idx];
     if(class_info.type !== CONSTANT_Class) {
       throw "Wrong bytecode format at " + currentOffset + ". This should be a Class";
     }
@@ -238,7 +243,7 @@ Parser.parse = function() {
   return clazz;
 };
 
-Parser.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/, ignore/*: Boolean*/, object/*: Any = null*/) {
+Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/, ignore/*: Boolean*/, object/*: Any = null*/) {
   var attributes_count = this.view.getUint16(currentOffset);
   currentOffset += 2;
   var attributes = [];
@@ -284,7 +289,7 @@ Parser.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/, ign
         }
         currentOffset += 4;
         // TODO read the instructions.
-        attributes[real_index].instructions = parseInstructions(new DataView(this.buffer, currentOffset, code_length));
+        attributes[real_index].instructions = parseInstructions(new jDataView(this.buffer, currentOffset, code_length));
         currentOffset += code_length;
         var exception_table_length = this.view.getUint16(currentOffset);
         currentOffset += 2;
