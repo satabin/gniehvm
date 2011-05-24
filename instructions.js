@@ -298,7 +298,7 @@ parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Clas
         instructions[i].count = input.getUint8(offset);
         offset++;
         if(input.getUint8(offset) != 0) {
-          throw "Wrong bytecode format at " + offset + ". 0 is expected";
+          throw new Error("Wrong bytecode format at " + offset + ". 0 is expected");
         }
         offset++;
         break;
@@ -306,7 +306,7 @@ parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Clas
         while((offset % 4) != 0) {
           // at most three null bytes to align instruction
           if(input.getUint8(offset) != 0) {
-            throw "Wrong bytecode format at " + offset + ". 0x00 is expected";
+            throw new Error("Wrong bytecode format at " + offset + ". 0x00 is expected");
           }
           offset++;
         }
@@ -316,7 +316,7 @@ parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Clas
         instruction.npairs = input.getInt32(offset);
         instruction.pairs = []
         offset += 32;
-        for(j = 0; j < instruction.npairs; j++) {
+        for(var j = 0; j < instruction.npairs; j++) {
           var match = input.getInt32(offset);
           offset += 32;
           var offs = input.getInt32(offset);
@@ -329,7 +329,7 @@ parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Clas
         offset += 2;
         instructions[i].dimensions = input.getUint8(offset);
         if(instructions[i].dimensions < 1) {
-          throw "Wrong bytecode format at " + offset + ". Array dimensions should be at least 1";
+          throw new Error("Wrong bytecode format at " + offset + ". Array dimensions should be at least 1");
         }
         offset++;
         break;
@@ -349,7 +349,7 @@ parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Clas
         while((offset % 4) != 0) {
           // at most three null bytes to align instruction
           if(input.getUint8(offset) != 0) {
-            throw "Wrong bytecode format at " + offset + ". 0x00 is expected";
+            throw new Error("Wrong bytecode format at " + offset + ". 0x00 is expected");
           }
           offset++;
         }
@@ -360,11 +360,11 @@ parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Clas
         offset += 4;
         instruction.high = input.getInt32(offset);
         if(instruction.low > instruction.high) {
-          throw "Wrong bytecode format at " + (offset - 4) + ". Low offset cannot be greater than high offset";
+          throw new Error("Wrong bytecode format at " + (offset - 4) + ". Low offset cannot be greater than high offset");
         }
         offset += 4;
         var jumps = [];
-        for(j = 0; j < (instruction.high - instruction.low + 1); j++) {
+        for(var j = 0; j < (instruction.high - instruction.low + 1); j++) {
           jumps[j] = input.getInt32(offset);
           offset += 4;
         }

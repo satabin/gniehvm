@@ -6,7 +6,6 @@ GniehVM = function(options/*: Array[String]*/) {
 
     buffer = xhr.mozResponseArrayBuffer;
     if(buffer) {
-      alert(buffer);
       var parser = new Parser(buffer);
       var clazz = parser.parse();
       alert(clazz.methods);
