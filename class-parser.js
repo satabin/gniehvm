@@ -20,8 +20,6 @@
     	attribute_info attributes[attributes_count];
     }</code>
  */
-load("instructions.js");
-
 Class = function(){};
 Parser = function(buffer/*: ArrayBuffer */){
   this.buffer = buffer;
@@ -68,7 +66,7 @@ ATTR_LocalVariableTable = "LocalVariableTable";
 ATTR_Deprecated = "Deprecated";
 
 /* parses the stream and returns the corresponding class object */
-Parser.parse = function(classBuffer/*: ArrayBuffer */) {
+Parser.parse = function() {
   var clazz = new Class();
 	// https://developer.mozilla.org/en/JavaScript_typed_arrays/ArrayBufferView
 	var magic = this.view.getUint32(0);
