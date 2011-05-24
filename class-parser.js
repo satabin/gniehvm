@@ -154,13 +154,15 @@ Parser.prototype.parse = function() {
             j += 2;
           }
         }
-//        document.write(i + ' -> ' + result.replace('<', '&lt;').replace('>', '&gt;') + '<br />');
+        document.write(i + ' -> ' + result.replace('<', '&lt;').replace('>', '&gt;') + '<br />');
         constants[i].value = result;
         constants[i].bytes = bytes;
         break;
     }
   }
   clazz.constants = constants;
+  // check the constant pool
+  this.checkConstantPool(constants);
 
   // read the access flags
   clazz.access_flags = this.view.getUint16(currentOffset);
@@ -361,4 +363,21 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
   }
 
   return currentOffset;
+}
+
+Parser.prototype.checkConstantPool = function(constants) {
+  for(var i in constants) {
+    var constant = constants[i];
+    switch(constant.type) {
+      case CONSTANT_Class:
+        if(constants[constant.name_index - 1].type != CONSTANT_Utf8) {
+          throw new Error('Class constant must reference an UTF8 name.');
+        }
+        break;
+      case CONSTANT_Fieldref:
+        break;
+      default:
+        throw new Error('Unknown constant type: ' + constant.type);
+    }
+  }
 }

@@ -47,7 +47,7 @@ decompile = function(url/*: String*/) {
     var fields = clazz.fields;
     for(var i in fields) {
       var field = fields[i];
-      attributes_to_string(dield.attributes);
+      attributes_to_string(field.attributes);
       flags_to_string(field.access_flags);
       document.write(field.descriptor + ' ' + field.name + '<br/>');
     }
@@ -99,7 +99,7 @@ bytes_to_float = function(bits/*: int*/) {
   } else if(bits == 0xff800000) {
     return '-Infinity';
   } else if((bits >= 0x7f800001 && bits <= 0x7fffffff)
-            || (bits >= 0xff800001 && bits <= 0xffffffff){
+            || (bits >= 0xff800001 && bits <= 0xffffffff)) {
     return 'NaN';
   } else {
     var s = ((bits >> 31) == 0) ? 1 : -1;
@@ -122,7 +122,7 @@ bytes_to_double = function(high_bytes/*: int*/, low_bytes/*: int*/) {
 attributes_to_string = function(attributes/*: Attribute[]*/) {
   for(var i in attributes) {
     document.write('@' + attributes[i].name);
-    if()
+    //if()
   }
 }
 
