@@ -161,8 +161,6 @@ Parser.prototype.parse = function() {
     }
   }
   clazz.constants = constants;
-  // check the constant pool
-  this.checkConstantPool(constants);
 
   // read the access flags
   clazz.access_flags = this.view.getUint16(currentOffset);
@@ -365,19 +363,104 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
   return currentOffset;
 }
 
-Parser.prototype.checkConstantPool = function(constants) {
+/* Links the class object with the runtime */
+Class.prototype.link(context) {
+  var constants = this.constants;
   for(var i in constants) {
     var constant = constants[i];
     switch(constant.type) {
       case CONSTANT_Class:
-        if(constants[constant.name_index - 1].type != CONSTANT_Utf8) {
+        var ref = constants[constant.name_index - 1];
+        if(ref.type != CONSTANT_Utf8) {
           throw new Error('Class constant must reference an UTF8 name.');
         }
+        constant.name = ref.value;
         break;
       case CONSTANT_Fieldref:
+        if(constants[constant.class_index - 1].type != CONSTANT_Class) {
+          throw new Error('Fieldref constant must reference a class.');
+        }
+        var name_and_type = constants[constant.name_and_type_index - 1];
+        if(name_and_type.type != CONSTANT_NameAndType) {
+          throw new Error('Fieldref constant must reference a class.');
+        }
+        var descriptor = constants[name_and_type.descriptor_index - 1];
+        if(descriptor.type != CONSTANT_Utf8) {
+          throw new Error('Descriptor must be a string.');
+        }
+        if(!isFieldDescriptor(descriptor.value) {
+          throw new Error(descriptor.value + ' is not a valid field descriptor');
+        }
         break;
       default:
         throw new Error('Unknown constant type: ' + constant.type);
     }
   }
+}
+
+TYPE = function(name) {
+  this.type = name;
+}
+const TYPE_byte    = TYPE('byte');
+const TYPE_char    = TYPE('char');
+const TYPE_float   = TYPE('float');
+const TYPE_double  = TYPE('double');
+const TYPE_int     = TYPE('int');
+const TYPE_long    = TYPE('long');
+const TYPE_short   = TYPE('short');
+const TYPE_boolean = TYPE('boolean');
+const TYPE_class   = function(name) {
+  return TYPE(name);
+}
+const TYPE_Array   = function(type) {
+  var t = TYPE('array');
+  t.content_type = type;
+  return t;
+}
+
+parseFieldDescriptor = function(name/*: String*/) {
+  switch(name) {
+    case 'B':
+      return TYPE_byte;
+    case 'C':
+      return TYPE_char;
+    case 'D':
+      return TYPE_double;
+    case 'F':
+      return TYPE_float;
+    case 'I':
+      return TYPE_int;
+    case 'J':
+      return TYPE_long;
+    case 'S':
+      return TYPE_short;
+    case 'Z':
+      return TYPE_boolean;
+    default:
+      if(name.charAt(0) === 'L') {
+        return TYPE_class(name.substring(1, name.length - 1));
+      } else if(name.charAt(0) ==='[') {
+        return TYPE_Array(parseFieldDescriptor(name.substring(1)));
+      } else {
+        throw new Error('Unknown field descriptor ' + name);
+      }
+  }
+}
+isFieldDescriptor = function(name/*: String*/) {
+  if(name in ['B', 'C', 'D', 'F', 'I', 'J', 'S', 'Z']) {
+    return true;
+  } else if(name.charAt(0) === 'L') {
+    return true;
+  } else if(name.charAt(0) === '[') {
+    return isFieldDescriptor(name.substring(1));
+  } else {
+    return false;
+  }
+}
+
+parseMethodDescriptor = function(name/*: String*/) {
+
+}
+isMethodDescriptor = function(name/*: String*/) {
+
 }
