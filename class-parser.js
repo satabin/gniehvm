@@ -161,6 +161,8 @@ Parser.prototype.parse = function() {
     }
   }
   clazz.constants = constants;
+  // check the constant pool
+  this.checkConstantPool(constants);
 
   // read the access flags
   clazz.access_flags = this.view.getUint16(currentOffset);
@@ -180,7 +182,7 @@ Parser.prototype.parse = function() {
   clazz.interfaces = [];
   for(var i = 0; i < interfaces_count; i++) {
     var idx = this.view.getUint16(currentOffset);
-    var class_info = clazz.constants[idx];
+    var class_info = clazz.constants[idx - 1];
     if(class_info.type !== CONSTANT_Class) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a Class");
     }
@@ -196,13 +198,15 @@ Parser.prototype.parse = function() {
     var field = {}
     field.access_flags = this.view.getUint16(currentOffset);
     currentOffset += 2;
-    var name = clazz.constants[this.view.getUint16(currentOffset)];
+    var idx = this.view.getUint16(currentOffset);
+    var name = clazz.constants[idx - 1];
     if(name.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String");
     }
     currentOffset += 2;
     field.name = name.value
-    var descriptor = clazz.constants[this.view.getUint16(currentOffset)];
+    idx = this.view.getUint16(currentOffset);
+    var descriptor = clazz.constants[idx - 1];
     if(descriptor.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String");
     }
@@ -221,13 +225,15 @@ Parser.prototype.parse = function() {
     var method = {};
     method.access_flags = this.view.getUint16(currentOffset);
     currentOffset += 2;
-    var name = clazz.constants[this.view.getUint16(currentOffset)];
+    var idx = this.view.getUint16(currentOffset);
+    var name = clazz.constants[idx - 1];
     if(name.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String");
     }
     currentOffset += 2;
     method.name = name.value;
-    var descriptor = clazz.constants[this.view.getUint16(currentOffset)];
+    idx = this.view.getUint16(currentOffset);
+    var descriptor = clazz.constants[idx - 1];
     if(descriptor.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String");
     }
@@ -253,25 +259,31 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
   var real_index = 0;
   for(var i = 0; i < attributes_count; i++) {
     var idx = this.view.getUint16(currentOffset);
-    var attribute_name = clazz.constants[idx];
+    var attribute_name = clazz.constants[idx - 1];
     if(attribute_name.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String. Actually it is " + attribute_name.type);
     }
     currentOffset += 2;
     var attribute_length = this.view.getUint32(currentOffset);
     currentOffset += 4;
+    attributes[real_index] = {'name': attribute_name.value};
     switch(attribute_name.value) {
       case ATTR_ConstantValue:
         if(attribute_length !== 2) {
           throw new Error("Wrong bytecode format at " + (currentOffset - 4) + ". Attribute length should be 2 for a ConstantValue attribute");
         }
         var constantvalue_index = this.view.getUint16(currentOffset);
-        switch(clazz.constants[constantvalue_index].type) {
+        var constantvalue = clazz.constants[constantvalue_index - 1];
+        switch(constantvalue.type) {
           case CONSTANT_Long:
-          case CONSTANT_Float:
           case CONSTANT_Double:
+            
+            break;
+          case CONSTANT_Float:
           case CONSTANT_Integer:
+            break;
           case CONSTANT_String:
+            attributes[real_index].constantvalue = constantvalue.value;
             // ok
             break;
           default:
@@ -279,7 +291,6 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
         }
         currentOffset += 2;
         attributes[real_index].type = attribute_name.value;
-        attributes[real_index].constantvalue_index = constantvalue_index;
         real_index++;
         break;
       case ATTR_Code:
@@ -308,7 +319,7 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
           currentOffset += 2;
           var catch_type = this.view.getUint16(currentOffset);
           if(catch_type != 0) {
-            var type = clazz.constants[catch_type];
+            var type = clazz.constants[catch_type - 1];
             if(type.type != CONSTANT_Class) {
               throw new Error("Wrong bytecode format at " + currentOffset + ". The catch type should be a class");
             }
@@ -319,7 +330,7 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
         }
         attributes[real_index].exception_table = exceptions;
         // TODO these are only debug attributes, ignore them for now, but implement later
-        currentOffset = parseAttributes(currentOffset, clazz, true);
+        currentOffset = this.parseAttributes(currentOffset, clazz, true);
 
         real_index++;
         break;
@@ -328,7 +339,8 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
         currentOffset += 2;
         var exception_table = [];
         for(var j = 0; j < number_of_exceptions; j++) {
-          var exception = clazz.constants[this.view.getUint16(currentOffset)];
+          var idx = this.view.getUint16(currentOffset);
+          var exception = clazz.constants[idx - 1];
           if(exception.type != CONSTANT_Class) {
             throw new Error("Wrong bytecode format at " + currentOffset + ". Thrown exceptions must be classes");
           }
@@ -351,4 +363,21 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
   }
 
   return currentOffset;
+}
+
+Parser.prototype.checkConstantPool = function(constants) {
+  for(var i in constants) {
+    var constant = constants[i];
+    switch(constant.type) {
+      case CONSTANT_Class:
+        if(constants[constant.name_index - 1].type != CONSTANT_Utf8) {
+          throw new Error('Class constant must reference an UTF8 name.');
+        }
+        break;
+      case CONSTANT_Fieldref:
+        break;
+      default:
+        throw new Error('Unknown constant type: ' + constant.type);
+    }
+  }
 }
