@@ -40,7 +40,7 @@ decompile = function(url/*: String*/) {
       for(var i in clazz.interfaces) {
         document.write(constants[clazz.interfaces[i] - 1].value + ', ');
       }
-      document.write('<br/>');
+      document.write('<br />');
     }
     // fields
     document.write('Fields:<br />');
@@ -49,17 +49,17 @@ decompile = function(url/*: String*/) {
       var field = fields[i];
       attributes_to_string(field.attributes);
       flags_to_string(field.access_flags);
-      document.write(field.descriptor + ' ' + field.name + '<br/>');
+      document.write(field.descriptor + ' ' + field.name + '<br />');
     }
     // the methods
-    document.write('Methods:<br/>');
+    document.write('Methods:<br />');
     var methods = clazz.methods;
     for(var i in methods) {
       var method = methods[i];
 
     }
   } else {
-    document.write(xhr.status + " -> " + xhr.responseText);
+    document.write(xhr.status + " -&gt; " + xhr.responseText);
   }
 }
 

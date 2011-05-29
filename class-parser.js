@@ -154,7 +154,7 @@ Parser.prototype.parse = function() {
             j += 2;
           }
         }
-        document.write(i + ' -> ' + result.replace('<', '&lt;').replace('>', '&gt;') + '<br />');
+        document.write(i + ' -&gt; ' + result.replace('<', '&lt;').replace('>', '&gt;') + '<br />');
         constants[i].value = result;
         constants[i].bytes = bytes;
         break;
@@ -361,10 +361,10 @@ Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Cl
   }
 
   return currentOffset;
-}
+};
 
 /* Links the class object with the runtime */
-Class.prototype.link(context) {
+Class.prototype.link = function(context) {
   var constants = this.constants;
   for(var i in constants) {
     var constant = constants[i];
@@ -388,7 +388,7 @@ Class.prototype.link(context) {
         if(descriptor.type != CONSTANT_Utf8) {
           throw new Error('Descriptor must be a string.');
         }
-        if(!isFieldDescriptor(descriptor.value) {
+        if(!isFieldDescriptor(descriptor.value)) {
           throw new Error(descriptor.value + ' is not a valid field descriptor');
         }
         break;
@@ -437,7 +437,7 @@ parseFieldDescriptor = function(name/*: String*/) {
     case 'Z':
       return TYPE_boolean;
     default:
-      if(name.charAt(0) === 'L') {
+      if(name.charAt(0) === 'L' && name.charAt(name.length - 1) === ';') {
         return TYPE_class(name.substring(1, name.length - 1));
       } else if(name.charAt(0) ==='[') {
         return TYPE_Array(parseFieldDescriptor(name.substring(1)));
@@ -449,7 +449,7 @@ parseFieldDescriptor = function(name/*: String*/) {
 isFieldDescriptor = function(name/*: String*/) {
   if(name in ['B', 'C', 'D', 'F', 'I', 'J', 'S', 'Z']) {
     return true;
-  } else if(name.charAt(0) === 'L') {
+  } else if(name.charAt(0) === 'L' && name.charAt(name.length - 1) === ';') {
     return true;
   } else if(name.charAt(0) === '[') {
     return isFieldDescriptor(name.substring(1));
@@ -459,8 +459,28 @@ isFieldDescriptor = function(name/*: String*/) {
 }
 
 parseMethodDescriptor = function(name/*: String*/) {
-
+  var chars = name.split("");
+  accept(chars[0], '(');
+  var param_types = [];
 }
+
+accept = function(found, expected) {
+  if(found !== accepted) {
+    throw new Error('Syntax error. Expected ' + expected + '. Found: ' + found);
+  }
+}
+
+parseType = function(chars/*Array[Char]*/, start:/*int*/) {
+  for(var i = start; i < chars.length && chars[i] !== ')'; i++) {
+    if(chars[i] in ['B', 'C', 'D', 'F', 'I', 'J', 'S', 'Z']) {
+      return {'result': parseFieldDescriptor(chars[i]), 'new_index': i + 1};
+    } else if(chars[i] === 'L') {
+
+    } else if(chars[i] === '[') {
+    }
+  }
+}
+
 isMethodDescriptor = function(name/*: String*/) {
 
 }
