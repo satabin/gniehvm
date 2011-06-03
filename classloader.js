@@ -429,7 +429,32 @@ Class.prototype.link = function(frame/*: Frame*/) {
         // set the resolved method name
         constant.name = name.value;
         break;
-        
+      case CONSTANT_InterfaceMethodref:
+        var clazz = constants[constant.class_index - 1];
+        if(clazz.type != CONSTANT_Class) {
+          throw new Error('InterfaceMethodref constant must reference an interface.');
+        }
+        // TODO check that the class is an interface
+        // idea: use the classloader of the current frame to load the class name
+        var name_and_type = constants[constant.name_and_type_index - 1];
+        if(name_and_type.type != CONSTANT_NameAndType) {
+          throw new Error('InterfaceMethodref constant must reference an interface.');
+        }
+        var descriptor = constants[name_and_type.descriptor_index - 1];
+        if(descriptor.type != CONSTANT_Utf8) {
+          throw new Error('Descriptor must be a string.');
+        }
+        // set the resolved method types
+        var meth_descriptor = DescriptorParser.parse(descriptor.value, 'method_descriptor');
+        constant.method_param_types = meth_descriptor.param_types;
+        constant.method_return_type = meth_descriptor.return_type;
+        var name = constants[constants[name_and_type_index.name_index - 1] - 1];
+        if(name.type !== CONSTANT_Utf8) {
+          throw new Error('Name must be a string');
+        }
+        // set the resolved method name
+        constant.name = name.value;
+        break;
       default:
         throw new Error('Unknown constant type: ' + constant.type);
     }
