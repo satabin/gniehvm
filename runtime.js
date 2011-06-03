@@ -3,7 +3,7 @@
  *  - Stack(s): the stack(s) with context (TODO one for each thread)
  *  - Heap: shared memory where object are allocated. Managed by the garbage collector
  */
-Frame = function(stack_size/*: int*/, parent_classloader:/*: ClassLoader*/) {
+Frame = function(stack_size/*: int*/, classloader:/*: ClassLoader*/) {
   // the program counter for this frame
   this.pc = 0;
   // the stack for this frame
@@ -11,13 +11,7 @@ Frame = function(stack_size/*: int*/, parent_classloader:/*: ClassLoader*/) {
   // store the mac size
   this.stack_size = stack_size;
   // the classloader
-  this.classloader = parent_classloader;
-};
-
-ClassLoader = function() {
-  // this map contain the classes already loaded by this class loader
-  // String -> Class
-  this.classes = {};
+  this.classloader = classloader;
 };
 
 Interpreter = function() {

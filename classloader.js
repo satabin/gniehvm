@@ -21,9 +21,31 @@
     }</code>
  */
 Class = function(){};
-ClassParser = function(buffer/*: ArrayBuffer */){
-  this.buffer = buffer;
-  this.view = new jDataView(buffer);
+
+/*
+ * The bootstrap class loader used by the VM. It searches for classes
+ * at the given url
+ */
+BootstrapClassloader = function(base_url/*: String*/) {
+  // this map contain the classes already loaded by this class loader
+  // String -> Class
+  this.classes = {};
+
+  this.loadClass = function(name/*: String*/) {
+    // only load the class if not loaded yet
+    if(classes[name] === undefined) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", url, false);
+      xhr.send(null);
+      if(xhr.status == 200) {
+      } else if(xhr.status == 404) {
+        // TODO throw NoClassDefFoundException
+      } else {
+        // TODO throw VM error
+      }
+
+    }
+  };
 };
 
 // constant types
@@ -66,86 +88,98 @@ const ATTR_LocalVariableTable = "LocalVariableTable";
 const ATTR_Deprecated = "Deprecated";
 
 /* parses the stream and returns the corresponding class object */
-ClassParser.prototype.parse = function() {
+BootstrapClassloader.prototype.parse = function(buffer/*: ArrayBuffer*/) {
+  var view = new jDataView(buffer);
   var clazz = new Class();
 	// https://developer.mozilla.org/en/JavaScript_typed_arrays/ArrayBufferView
-	var magic = this.view.getUint32(0);
+	var magic = view.getUint32(0);
   if(magic != 0xCAFEBABE) {
     // wrong magic number...
     throw new Error("Wrong magic number");
   }
-	clazz.minor_version = this.view.getUint16(4);
-	clazz.major_version = this.view.getUint16(6);
-	var constant_pool_count = this.view.getUint16(8);
+	clazz.minor_version = view.getUint16(4);
+	clazz.major_version = view.getUint16(6);
+	var constant_pool_count = view.getUint16(8);
   var currentOffset = 10;
   var constants = [];
   for(var i = 0; i < constant_pool_count - 1; i++) {
     // read the constant pool
     constants[i] = {};
-    var type = this.view.getUint8(currentOffset);
+    var type = view.getUint8(currentOffset);
     constants[i].type = type;
     currentOffset++;
     switch(type) {
       case CONSTANT_Class:
-        constants[i].name_index = this.view.getUint16(currentOffset);
+        constants[i].name_index = view.getUint16(currentOffset);
         currentOffset += 2;
         break;
       case CONSTANT_Fieldref:
       case CONSTANT_Methodref:
       case CONSTANT_InterfaceMethodref:
-        constants[i].class_index = this.view.getUint16(currentOffset);
+        constants[i].class_index = view.getUint16(currentOffset);
         currentOffset += 2;
-        constants[i].name_and_type_index = this.view.getUint16(currentOffset);
+        constants[i].name_and_type_index = view.getUint16(currentOffset);
         currentOffset += 2;
         break;
       case CONSTANT_String:
-        constants[i].string_index = this.view.getUint16(currentOffset);
+        constants[i].string_index = view.getUint16(currentOffset);
         currentOffset += 2;
         break;
       case CONSTANT_Integer:
-      case CONSTANT_Float:
-        constants[i].bytes = this.view.getUint32(currentOffset);
+        constants[i].bytes = view.getUint32(currentOffset);
         currentOffset += 4;
+        break;
+      case CONSTANT_Float:
+        constants[i].bytes = view.getUint32(currentOffset);
+        currentOffset += 4;
+        constant[i].value = bytes_to_float(constants[i].bytes);
         break;
       case CONSTANT_Long:
+        constants[i].high_bytes = view.getUint32(currentOffset);
+        currentOffset += 4;
+        constants[i].low_bytes = view.getUint32(currentOffset);
+        currentOffset += 4;
+        constants[i].value = bytes_to_long(constants[i].high_bytes, constants[i].low_bytes);
+        break;
       case CONSTANT_Double:
-        constants[i].high_bytes = this.view.getUint32(currentOffset);
+        constants[i].high_bytes = view.getUint32(currentOffset);
         currentOffset += 4;
-        constants[i].low_bytes = this.view.getUint32(currentOffset);
+        constants[i].low_bytes = view.getUint32(currentOffset);
         currentOffset += 4;
+        constants[i].value = bytes_to_double(constants[i].high_bytes, constants[i].low_bytes);
         break;
       case CONSTANT_NameAndType:
-        constants[i].name_index = this.view.getUint16(currentOffset);
+        constants[i].name_index = view.getUint16(currentOffset);
         currentOffset += 2;
-        constants[i].descriptor_index = this.view.getUint16(currentOffset);
+        constants[i].descriptor_index = view.getUint16(currentOffset);
         currentOffset += 2;
         break;
       case CONSTANT_Utf8:
         if(i == 4) {
           i;
         }
-        var string_length = this.view.getUint16(currentOffset);
+        var string_length = view.getUint16(currentOffset);
         constants[i].length = string_length;
         currentOffset += 2;
         var bytes = [];
         var result = "";
         for(var j = 0; j < string_length; j++) {
-          var first = this.view.getUint8(currentOffset);
+          var first = view.getUint8(currentOffset);
           currentOffset++;
           if(!(first & 0x80)) {
             result += String.fromCharCode(first & 0x7f);
             bytes[j] = first & 0x7f;
           } else if(first & 0xc0) {
-            var second = this.view.getUint8(currentOffset);
+            var second = view.getUint8(currentOffset);
             currentOffset++;
             result += String.fromCharCode(((first & 0x1f) << 6) + (second & 0x3f));
             bytes[j] = first & 0x1f;
             bytes[j+1] = second & 0x3f;
             j++;
           } else if(first & 0xe0) {
-            var second = this.view.getUint8(currentOffset);
+            var second = view.getUint8(currentOffset);
             currentOffset++;
-            var third = this.view.getUint8(currentOffset);
+            var third = view.getUint8(currentOffset);
             currentOffset++;
             result += String.fromCharCode(((first & 0xf) << 12) + ((second & 0x3f) << 6) + (third & 0x3f));
             bytes[j] = first & 0xf;
@@ -163,23 +197,23 @@ ClassParser.prototype.parse = function() {
   clazz.constants = constants;
 
   // read the access flags
-  clazz.access_flags = this.view.getUint16(currentOffset);
+  clazz.access_flags = view.getUint16(currentOffset);
   currentOffset += 2;
 
   // read the this_class
-  clazz.this_class = this.view.getUint16(currentOffset);
+  clazz.this_class = view.getUint16(currentOffset);
   currentOffset += 2;
 
   // read the super_class
-  clazz.super_class = this.view.getUint16(currentOffset);
+  clazz.super_class = view.getUint16(currentOffset);
   currentOffset += 2;
 
   // read the parent interfaces
-  var interfaces_count = this.view.getUint16(currentOffset);
+  var interfaces_count = view.getUint16(currentOffset);
   currentOffset += 2;
   clazz.interfaces = [];
   for(var i = 0; i < interfaces_count; i++) {
-    var idx = this.view.getUint16(currentOffset);
+    var idx = view.getUint16(currentOffset);
     var class_info = clazz.constants[idx - 1];
     if(class_info.type !== CONSTANT_Class) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a Class");
@@ -189,21 +223,21 @@ ClassParser.prototype.parse = function() {
   }
 
   // read the fields
-  var fields_count = this.view.getUint16(currentOffset);
+  var fields_count = view.getUint16(currentOffset);
   currentOffset += 2;
   clazz.fields = [];
   for(var i = 0; i < fields_count; i++) {
     var field = {}
-    field.access_flags = this.view.getUint16(currentOffset);
+    field.access_flags = view.getUint16(currentOffset);
     currentOffset += 2;
-    var idx = this.view.getUint16(currentOffset);
+    var idx = view.getUint16(currentOffset);
     var name = clazz.constants[idx - 1];
     if(name.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String");
     }
     currentOffset += 2;
     field.name = name.value
-    idx = this.view.getUint16(currentOffset);
+    idx = view.getUint16(currentOffset);
     var descriptor = clazz.constants[idx - 1];
     if(descriptor.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String");
@@ -211,26 +245,26 @@ ClassParser.prototype.parse = function() {
     currentOffset += 2;
     field.descriptor = descriptor.value;
     // read the attributes
-    currentOffset = this.parseAttributes(currentOffset, clazz, false, field);
+    currentOffset = this.parseAttributes(buffer, view, currentOffset, clazz, false, field);
     clazz.fields[i] = field;
   }
 
   // read the methods
-  var methods_count = this.view.getUint16(currentOffset);
+  var methods_count = view.getUint16(currentOffset);
   currentOffset += 2;
   clazz.methods = [];
   for(var i = 0; i < methods_count; i++) {
     var method = {};
-    method.access_flags = this.view.getUint16(currentOffset);
+    method.access_flags = view.getUint16(currentOffset);
     currentOffset += 2;
-    var idx = this.view.getUint16(currentOffset);
+    var idx = view.getUint16(currentOffset);
     var name = clazz.constants[idx - 1];
     if(name.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String");
     }
     currentOffset += 2;
     method.name = name.value;
-    idx = this.view.getUint16(currentOffset);
+    idx = view.getUint16(currentOffset);
     var descriptor = clazz.constants[idx - 1];
     if(descriptor.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String");
@@ -238,31 +272,31 @@ ClassParser.prototype.parse = function() {
     currentOffset += 2;
     method.descriptor = descriptor.value;
     // read the attributes
-    currentOffset = this.parseAttributes(currentOffset, clazz, false, method);
+    currentOffset = this.parseAttributes(buffer, view, currentOffset, clazz, false, method);
 
     clazz.methods[i] = method;
   }
 
   // TODO for the moment we ignore all class attributes because they are only debug value
   // TODO add support for it later.
-  currentOffset = this.parseAttributes(currentOffset, clazz, true);
+  currentOffset = this.parseAttributes(buffer, view, currentOffset, clazz, true);
 
   return clazz;
 };
 
-ClassParser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/, ignore/*: Boolean*/, object/*: Any = null*/) {
-  var attributes_count = this.view.getUint16(currentOffset);
+BootstrapClassloader.prototype.parseAttributes = function(buffer/*: ArrayBuffer*/, view/*: jDataView*/, currentOffset/*: int */, clazz/*: Class*/, ignore/*: Boolean*/, object/*: Any = null*/) {
+  var attributes_count = view.getUint16(currentOffset);
   currentOffset += 2;
   var attributes = [];
   var real_index = 0;
   for(var i = 0; i < attributes_count; i++) {
-    var idx = this.view.getUint16(currentOffset);
+    var idx = view.getUint16(currentOffset);
     var attribute_name = clazz.constants[idx - 1];
     if(attribute_name.type !== CONSTANT_Utf8) {
       throw new Error("Wrong bytecode format at " + currentOffset + ". This should be a String. Actually it is " + attribute_name.type);
     }
     currentOffset += 2;
-    var attribute_length = this.view.getUint32(currentOffset);
+    var attribute_length = view.getUint32(currentOffset);
     currentOffset += 4;
     attributes[real_index] = {'name': attribute_name.value};
     switch(attribute_name.value) {
@@ -270,7 +304,7 @@ ClassParser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/
         if(attribute_length !== 2) {
           throw new Error("Wrong bytecode format at " + (currentOffset - 4) + ". Attribute length should be 2 for a ConstantValue attribute");
         }
-        var constantvalue_index = this.view.getUint16(currentOffset);
+        var constantvalue_index = view.getUint16(currentOffset);
         var constantvalue = clazz.constants[constantvalue_index - 1];
         switch(constantvalue.type) {
           case CONSTANT_Long:
@@ -292,30 +326,30 @@ ClassParser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/
         real_index++;
         break;
       case ATTR_Code:
-        attributes[real_index].max_stack = this.view.getUint16(currentOffset);
+        attributes[real_index].max_stack = view.getUint16(currentOffset);
         currentOffset += 2;
-        attributes[real_index].max_locals = this.view.getUint16(currentOffset);
+        attributes[real_index].max_locals = view.getUint16(currentOffset);
         currentOffset += 2;
-        var code_length = this.view.getUint32(currentOffset);
+        var code_length = view.getUint32(currentOffset);
         if(code_length <= 0) {
           throw new Error("Wrong bytecode format at "+ currentOffset + ". Code length must be greater than zero");
         }
         currentOffset += 4;
         // read the instructions.
-        attributes[real_index].instructions = parseInstructions(new jDataView(this.buffer, currentOffset, code_length));
+        attributes[real_index].instructions = parseInstructions(new jDataView(buffer, currentOffset, code_length));
         currentOffset += code_length;
-        var exception_table_length = this.view.getUint16(currentOffset);
+        var exception_table_length = view.getUint16(currentOffset);
         currentOffset += 2;
         var exceptions = []
         for(var j = 0; j < exception_table_length; j++) {
           var exception = {};
-          exception.start_pc = this.view.getUint16(currentOffset);
+          exception.start_pc = view.getUint16(currentOffset);
           currentOffset += 2;
-          exception.end_pc = this.view.getUint16(currentOffset);
+          exception.end_pc = view.getUint16(currentOffset);
           currentOffset += 2;
-          exception.handler_pc = this.view.getUint16(currentOffset);
+          exception.handler_pc = view.getUint16(currentOffset);
           currentOffset += 2;
-          var catch_type = this.view.getUint16(currentOffset);
+          var catch_type = view.getUint16(currentOffset);
           if(catch_type != 0) {
             var type = clazz.constants[catch_type - 1];
             if(type.type != CONSTANT_Class) {
@@ -328,16 +362,16 @@ ClassParser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/
         }
         attributes[real_index].exception_table = exceptions;
         // TODO these are only debug attributes, ignore them for now, but implement later
-        currentOffset = this.parseAttributes(currentOffset, clazz, true);
+        currentOffset = this.parseAttributes(buffer, view, currentOffset, clazz, true);
 
         real_index++;
         break;
       case ATTR_Exceptions:
-        var number_of_exceptions = this.view.getUint16(currentOffset);
+        var number_of_exceptions = view.getUint16(currentOffset);
         currentOffset += 2;
         var exception_table = [];
         for(var j = 0; j < number_of_exceptions; j++) {
-          var idx = this.view.getUint16(currentOffset);
+          var idx = view.getUint16(currentOffset);
           var exception = clazz.constants[idx - 1];
           if(exception.type != CONSTANT_Class) {
             throw new Error("Wrong bytecode format at " + currentOffset + ". Thrown exceptions must be classes");
@@ -375,6 +409,7 @@ Class.prototype.link = function(frame/*: Frame*/) {
           throw new Error('Class constant must reference an UTF8 name.');
         }
         constant.name = ref.value;
+        constant.class_type = DescriptorParser.parse(ref.value, 'field_descriptor');
         break;
       case CONSTANT_Fieldref:
         if(constants[constant.class_index - 1].type != CONSTANT_Class) {
@@ -458,6 +493,25 @@ Class.prototype.link = function(frame/*: Frame*/) {
         }
         // set the resolved method name
         constant.name = name.value;
+        break;
+      case CONSTANT_String:
+        var ref = constants[constant.string_index - 1];
+        if(ref.type != CONSTANT_Utf8) {
+          throw new Error('A string must reference an UTF8 string.');
+        }
+        constant.value = ref.value;
+        break;
+      case CONSTANT_NameAndType:
+        var name = constants[constants[name_and_type_index.name_index - 1] - 1];
+        if(name.type !== CONSTANT_Utf8) {
+          throw new Error('Name must be a string');
+        }
+        constant.name = name;
+        var descriptor = constants[constant.descriptor_index - 1];
+        if(descriptor.type != CONSTANT_Utf8) {
+          throw new Error('Descriptor must be a string.');
+        }
+        constant.descriptor = descriptor;
         break;
       default:
         throw new Error('Unknown constant type: ' + constant.type);

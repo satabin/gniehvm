@@ -3,13 +3,6 @@ GniehVM = function(options/*: Array[String]*/) {
     var xhr = new XMLHttpRequest();
     xhr.open("GET", url, false);
     xhr.send(null);
-
-    buffer = xhr.mozResponseArrayBuffer;
-    if(buffer) {
-      var parser = new ClassParser(buffer);
-      var clazz = parser.parse();
-      alert(clazz.methods);
-    }
   }
 }
 
@@ -19,8 +12,10 @@ decompile = function(url/*: String*/) {
   xhr.send(null);
   if(xhr.status == 200) {
     // ok found and downloaded
-    var parser = new ClassParser(xhr.mozResponseArrayBuffer);
-    var clazz = parser.parse();
+    var classloader = new BootstrapClassloader();
+    var start = new Date().getTime();
+    var clazz = classloader.parse(xhr.mozResponseArrayBuffer);
+    document.write('<b>Time to parse class file: ' + (new Date().getTime() - start) + 'ms</b><br />');
     var flags = clazz.access_flags;
     document.write(flags_to_string(flags));
     if(flags & ACC_INTERFACE) {
@@ -93,14 +88,18 @@ flags_to_string = function(flags/*: int*/) {
     }
 }
 
+const CONST_POS_INFINITY = '+Infinity';
+const CONST_NEG_INFINITY = '-Infinity';
+const CONST_NAN          = 'Nan';
+
 bytes_to_float = function(bits/*: int*/) {
   if(bits == 0x7f800000) {
-    return '+Infinity';
+    return CONST_POS_INFINITY;
   } else if(bits == 0xff800000) {
-    return '-Infinity';
+    return CONST_NEG_INFINITY;
   } else if((bits >= 0x7f800001 && bits <= 0x7fffffff)
             || (bits >= 0xff800001 && bits <= 0xffffffff)) {
-    return 'NaN';
+    return CONST_NAN;
   } else {
     var s = ((bits >> 31) == 0) ? 1 : -1;
     var e = ((bits >> 23) & 0xff);
@@ -117,6 +116,21 @@ bytes_to_long = function(high_bytes/*: int*/, low_bytes/*: int*/) {
 
 bytes_to_double = function(high_bytes/*: int*/, low_bytes/*: int*/) {
   var bits = (high_bytes << 32) + low_bytes;
+  if(bits == 0x7ff0000000000000) {
+    return CONST_POS_INFINITY;
+  } else if(bits == 0xfff0000000000000) {
+    return CONST_NEG_INFINITY;
+  } else if((bits >= 0x7ff0000000000001 && bits <= 0x7fffffffffffffff)
+            || (bits >= 0xfff0000000000001 && bits <= 0xffffffffffffffff)) {
+    return CONST_NAN;
+  } else  {
+    var s = ((bits >> 63) == 0) ? 1 : -1;
+    var e = ((bits >> 52) & 0x7ff);
+    var m = (e == 0) ?
+            (bits & 0xfffffffffffff) << 1 :
+            (bits & 0xfffffffffffff) | 0x10000000000000;
+    return s * m * Math.pow(2, e - 1075);
+  }
 }
 
 attributes_to_string = function(attributes/*: Attribute[]*/) {
