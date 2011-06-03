@@ -132,17 +132,17 @@ ClassParser.prototype.parse = function() {
         for(var j = 0; j < string_length; j++) {
           var first = this.view.getUint8(currentOffset);
           currentOffset++;
-          if((first & 0x80) == 0x00) {
+          if(!(first & 0x80)) {
             result += String.fromCharCode(first & 0x7f);
             bytes[j] = first & 0x7f;
-          } else if((first & 0xc0) == 0xc0) {
+          } else if(first & 0xc0) {
             var second = this.view.getUint8(currentOffset);
             currentOffset++;
             result += String.fromCharCode(((first & 0x1f) << 6) + (second & 0x3f));
             bytes[j] = first & 0x1f;
             bytes[j+1] = second & 0x3f;
             j++;
-          } else if((first & 0xe0) == 0xe0) {
+          } else if(first & 0xe0) {
             var second = this.view.getUint8(currentOffset);
             currentOffset++;
             var third = this.view.getUint8(currentOffset);
@@ -402,8 +402,10 @@ Class.prototype.link = function(frame/*: Frame*/) {
         if(clazz.type != CONSTANT_Class) {
           throw new Error('Methodref constant must reference a class.');
         }
-        // TODO check that the class is not an interface
-        // idea: use the classloader of the current frame to load the class name
+        // check that the class is not an interface
+        if(this.access_flags & ACC_INTERFACE) {
+          throw new Error('Referenced class cannot be an interface');
+        }
         var name_and_type = constants[constant.name_and_type_index - 1];
         if(name_and_type.type != CONSTANT_NameAndType) {
           throw new Error('Methodref constant must reference a class.');
@@ -434,8 +436,10 @@ Class.prototype.link = function(frame/*: Frame*/) {
         if(clazz.type != CONSTANT_Class) {
           throw new Error('InterfaceMethodref constant must reference an interface.');
         }
-        // TODO check that the class is an interface
-        // idea: use the classloader of the current frame to load the class name
+        // check that the class is an interface
+        if(!(this.access_flags & ACC_INTERFACE)) {
+          throw new Error('Referenced class must be an interface');
+        }
         var name_and_type = constants[constant.name_and_type_index - 1];
         if(name_and_type.type != CONSTANT_NameAndType) {
           throw new Error('InterfaceMethodref constant must reference an interface.');
