@@ -41,7 +41,7 @@ BootstrapClassloader = function(base_url/*: String*/) {
         // TODO this is firefox specific
         this.classes[name] = this.parse(xhr.mozResponseArrayBuffer);
       } else if(xhr.status == 404) {
-        // TODO throw NoClassDefFoundException
+        throw new NoClassDefFoundError(name);
       } else {
         // TODO throw VM error
       }
