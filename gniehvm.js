@@ -6,7 +6,7 @@ GniehVM = function(options/*: Array[String]*/) {
 
     buffer = xhr.mozResponseArrayBuffer;
     if(buffer) {
-      var parser = new Parser(buffer);
+      var parser = new ClassParser(buffer);
       var clazz = parser.parse();
       alert(clazz.methods);
     }
@@ -19,7 +19,7 @@ decompile = function(url/*: String*/) {
   xhr.send(null);
   if(xhr.status == 200) {
     // ok found and downloaded
-    var parser = new Parser(xhr.mozResponseArrayBuffer);
+    var parser = new ClassParser(xhr.mozResponseArrayBuffer);
     var clazz = parser.parse();
     var flags = clazz.access_flags;
     document.write(flags_to_string(flags));

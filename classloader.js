@@ -21,7 +21,7 @@
     }</code>
  */
 Class = function(){};
-Parser = function(buffer/*: ArrayBuffer */){
+ClassParser = function(buffer/*: ArrayBuffer */){
   this.buffer = buffer;
   this.view = new jDataView(buffer);
 };
@@ -66,7 +66,7 @@ const ATTR_LocalVariableTable = "LocalVariableTable";
 const ATTR_Deprecated = "Deprecated";
 
 /* parses the stream and returns the corresponding class object */
-Parser.prototype.parse = function() {
+ClassParser.prototype.parse = function() {
   var clazz = new Class();
 	// https://developer.mozilla.org/en/JavaScript_typed_arrays/ArrayBufferView
 	var magic = this.view.getUint32(0);
@@ -250,7 +250,7 @@ Parser.prototype.parse = function() {
   return clazz;
 };
 
-Parser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/, ignore/*: Boolean*/, object/*: Any = null*/) {
+ClassParser.prototype.parseAttributes = function(currentOffset/*: int */, clazz/*: Class*/, ignore/*: Boolean*/, object/*: Any = null*/) {
   var attributes_count = this.view.getUint16(currentOffset);
   currentOffset += 2;
   var attributes = [];
