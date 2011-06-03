@@ -33,11 +33,13 @@ BootstrapClassloader = function(base_url/*: String*/) {
 
   this.loadClass = function(name/*: String*/) {
     // only load the class if not loaded yet
-    if(classes[name] === undefined) {
+    if(this.classes[name] === undefined) {
       var xhr = new XMLHttpRequest();
-      xhr.open("GET", url, false);
+      xhr.open("GET", base_url + '/' + name + '.class', false);
       xhr.send(null);
       if(xhr.status == 200) {
+        // TODO this is firefox specific
+        this.classes[name] = this.parse(xhr.mozResponseArrayBuffer);
       } else if(xhr.status == 404) {
         // TODO throw NoClassDefFoundException
       } else {

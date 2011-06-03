@@ -6,15 +6,11 @@ GniehVM = function(options/*: Array[String]*/) {
   }
 }
 
-decompile = function(url/*: String*/) {
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", url, false);
-  xhr.send(null);
-  if(xhr.status == 200) {
-    // ok found and downloaded
-    var classloader = new BootstrapClassloader();
+decompile = function(url/*: String*/, name/*: String*/) {
+    var classloader = new BootstrapClassloader(url);
     var start = new Date().getTime();
-    var clazz = classloader.parse(xhr.mozResponseArrayBuffer);
+    classloader.loadClass(name);
+    var clazz = classloader.classes[name];
     document.write('<b>Time to parse class file: ' + (new Date().getTime() - start) + 'ms</b><br />');
     var flags = clazz.access_flags;
     document.write(flags_to_string(flags));
@@ -53,9 +49,6 @@ decompile = function(url/*: String*/) {
       var method = methods[i];
 
     }
-  } else {
-    document.write(xhr.status + " -&gt; " + xhr.responseText);
-  }
 }
 
 flags_to_string = function(flags/*: int*/) {
@@ -140,4 +133,4 @@ attributes_to_string = function(attributes/*: Attribute[]*/) {
   }
 }
 
-decompile("http://localhost/jsvm/test/Test.class");
+decompile("http://localhost/jsvm/test/", "Test");
