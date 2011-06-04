@@ -27,7 +27,7 @@ decompile = function(name/*: String*/, urls/*Array[String]*/) {
     if(clazz.interfaces.length > 0) {
       document.write('implements ');
       for(var i in clazz.interfaces) {
-        document.write(constants[clazz.interfaces[i] - 1].value + ', ');
+        document.write(clazz.interfaces[i].name + ', ');
       }
       document.write('<br />');
     }

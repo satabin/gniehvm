@@ -31,7 +31,12 @@ BootstrapClassloader = function(base_urls/*: Array[String]*/) {
   // String -> Class
   this.classes = {};
 
-  this.loadClass = function(name/*: String*/) {
+  this.loadClass = function(name/*: String*/, already_seen/*: Array[String]*/) {
+    already_seen = already_seen || [];
+    if(name in already_seen) {
+      // EXC ClassCircularityError
+      throw new Error(name + ' is a parent of itself');
+    }
     // only load the class if not loaded yet
     if(this.classes[name] === undefined) {
       var xhr = new XMLHttpRequest();
@@ -44,9 +49,9 @@ BootstrapClassloader = function(base_urls/*: Array[String]*/) {
           // TODO this is firefox specific
           var start = new Date().getTime();
           var clazz = this.parse(xhr.mozResponseArrayBuffer);
-          document.write('<b>Time to parse class file: ' + (new Date().getTime() - start) + 'ms</b><br />');
+          document.write('<b>Time to parse class file ' + name + ': ' + (new Date().getTime() - start) + 'ms</b><br />');
           // link the class
-          clazz.link(this);
+          clazz.link(this, already_seen);
           // the class was loaded by this classloader
           clazz.classloader = this;
           this.classes[name] = clazz
@@ -268,7 +273,7 @@ BootstrapClassloader.prototype.parse = function(buffer/*: ArrayBuffer*/) {
   // read the methods
   var methods_count = view.getUint16(currentOffset);
   currentOffset += 2;
-  clazz.methods = [];
+  clazz.methods = {};
   for(var i = 0; i < methods_count; i++) {
     var method = {};
     method.access_flags = view.getUint16(currentOffset);
@@ -287,10 +292,13 @@ BootstrapClassloader.prototype.parse = function(buffer/*: ArrayBuffer*/) {
     }
     currentOffset += 2;
     method.descriptor = descriptor.value;
+    var meth_type = DescriptorParser.parse(descriptor.value, 'method_descriptor');
+    method.param_types = meth_type.param_types;
+    method.return_type = meth_type.return_type;
     // read the attributes
     currentOffset = this.parseAttributes(buffer, view, currentOffset, clazz, false, method);
-
-    clazz.methods[i] = method;
+    var key = name.value + descriptor.value;
+    clazz.methods[key] = method;
   }
 
   // TODO for the moment we ignore all class attributes because they are only debug value
@@ -414,7 +422,7 @@ BootstrapClassloader.prototype.parseAttributes = function(buffer/*: ArrayBuffer*
 };
 
 /* Links the class object with the runtime */
-Class.prototype.link = function(classloader/*: ClassLoader*/) {
+Class.prototype.link = function(classloader/*: ClassLoader*/, already_seen/*: Array[String]*/) {
   var constants = this.constants;
   for(var i in constants) {
     var constant = constants[i];
@@ -543,26 +551,82 @@ Class.prototype.link = function(classloader/*: ClassLoader*/) {
   // the direct super class
   // java.lang.Object has no super class
   if(this.super_class != 0) {
-    clazz = constants[this.super_class - 1];
+    var clazz = constants[this.super_class - 1];
     if(clazz.type != CONSTANT_Class) {
       throw new Error('Super must reference a class.');
     }
     this.super_name = clazz.name;
+    if((this.access_flags & ACC_INTERFACE) && clazz.name != CLASS_OBJECT) {
+      // this is an interface -> object as super class
+      throw new Error('Interfaces must hav java.lang.Object as direct super class');
+    }
     // resolve super class name
-    classloader.loadClass(clazz.name);
+    var tmp = already_seen.slice(0);
+    tmp.push(clazz.name);
+    classloader.loadClass(clazz.name, tmp);
     // check that this is a class
-    var super_acc = classloader.classes[clazz.name].access_flags;
+    var super_clazz = classloader.classes[clazz.name];
+    var super_acc = super_clazz.access_flags;
     if(super_acc & ACC_INTERFACE) {
+      // EXC IncompatibleClassChangeError
       throw new Error('Super class may not be an interface');
     } 
     // check that super class is not final
     if(super_acc & ACC_FINAL) {
       throw new Error('Cannot extend a final class');
     }
-    // TODO if super class is abstract or an interface check that all abstract methods are implemented
-    // TODO check that no final method are overwritten
+    this.super_clazz = super_clazz;
+    // check that no final method are overwritten
+    var final_methods = super_clazz.findMethods(function(m) { return m.access_flags & ACC_FINAL });
+    for(var i in final_methods) {
+      var meth = final_methods[i];
+      if(this.methods[meth.name + meth.descriptor]) {
+        throw new Error('Final methods may not be overwritten');
+      }
+    }
+  } else if(this.this_name != CLASS_OBJECT) {
+    throw new Error('Only ' + CLASS_OBJECT + ' has no direct super type');
+  }
+
+  // check that implemented interfaces are really interfaces
+  for(var i in this.interfaces) {
+    var itf = this.interfaces[i];
+    var itf_name = constants[itf - 1];
+    if(itf_name.type != CONSTANT_Utf8) {
+      throw new Error('Interface name expected');
+    }
+    this.interfaces[i] = {'name': itf_name.value };
+    itf = this.interfaces[i];
+
+    classloader.loadClass(itf.name, [itf.name]);
+    var itf_clazz = classloader.classes[itf.name];
+    if(!(itf_clazz.access_flags & ACC_INTERFACE)) {
+      throw new Error('A class may only implement interfaces');
+    }
+    itf.clazz = itf_clazz;
   }
 
   var methods = this.methods;
 }
 
+/**
+ * Finds all methods from this class which fulfill the predicate.
+ * Parameter recursive indicates whether to search in super classes
+ * and interfaces. Default is true
+ */
+Class.prototype.findMethods = function(pred/*: Method -> boolean*/, recursive/*= true*/) {
+  if(recursive === undefined) {
+    recursive = true;
+  }
+  var result = [];
+  for(var name in this.methods) {
+    var m = this.methods[name];
+    if(pred(m)) {
+      result.push(m)
+    }
+  }
+  if(recursive && this.super_clazz) {
+    result.concat(this.super_clazz.findMethods(pred));
+  }
+  return result;
+}
