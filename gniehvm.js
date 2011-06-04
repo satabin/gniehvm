@@ -11,7 +11,7 @@ decompile = function(name/*: String*/, urls/*Array[String]*/) {
     classloader.loadClass(name);
     var clazz = classloader.classes[name];
     var flags = clazz.access_flags;
-    document.write(flags_to_string(flags));
+    print_flags(flags);
     if(flags & ACC_INTERFACE) {
       document.write('interface ');
     } else {
@@ -37,19 +37,19 @@ decompile = function(name/*: String*/, urls/*Array[String]*/) {
     for(var i in fields) {
       var field = fields[i];
       attributes_to_string(field.attributes);
-      flags_to_string(field.access_flags);
+      print_flags(field.access_flags);
       document.write(field.descriptor + ' ' + field.name + '<br />');
     }
     // the methods
     document.write('Methods:<br />');
     var methods = clazz.methods;
-    for(var i in methods) {
-      var method = methods[i];
-
+    for(var name in methods) {
+      print_flags(methods[name].access_flags)
+      document.write(name.replace('<', '&lt;') + '<br />');
     }
 }
 
-flags_to_string = function(flags/*: int*/) {
+print_flags = function(flags/*: int*/) {
     if(flags & ACC_PUBLIC) {
       document.write('public ');
     }
