@@ -6,12 +6,10 @@ GniehVM = function(options/*: Array[String]*/) {
   }
 }
 
-decompile = function(url/*: String*/, name/*: String*/) {
-    var classloader = new BootstrapClassloader(url);
-    var start = new Date().getTime();
+decompile = function(name/*: String*/, urls/*Array[String]*/) {
+    var classloader = new BootstrapClassloader(urls);
     classloader.loadClass(name);
     var clazz = classloader.classes[name];
-    document.write('<b>Time to parse class file: ' + (new Date().getTime() - start) + 'ms</b><br />');
     var flags = clazz.access_flags;
     document.write(flags_to_string(flags));
     if(flags & ACC_INTERFACE) {
@@ -129,8 +127,11 @@ bytes_to_double = function(high_bytes/*: int*/, low_bytes/*: int*/) {
 attributes_to_string = function(attributes/*: Attribute[]*/) {
   for(var i in attributes) {
     document.write('@' + attributes[i].name);
-    //if()
   }
 }
 
-decompile("http://localhost/jsvm/test/", "Test");
+try {
+  decompile("Test", ["http://localhost/jsvm/test/", "http://localhost/jsvm/lib"]);
+} catch(e) {
+  document.write(e);
+}

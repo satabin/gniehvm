@@ -326,90 +326,103 @@ DescriptorParser = (function(){
         
         
         if (input.substr(pos, 1) === "B") {
-          var result8 = "B";
+          var result9 = "B";
           pos += 1;
         } else {
-          var result8 = null;
+          var result9 = null;
           if (reportMatchFailures) {
             matchFailed("\"B\"");
           }
         }
-        if (result8 !== null) {
-          var result1 = result8;
+        if (result9 !== null) {
+          var result1 = result9;
         } else {
           if (input.substr(pos, 1) === "C") {
-            var result7 = "C";
+            var result8 = "C";
             pos += 1;
           } else {
-            var result7 = null;
+            var result8 = null;
             if (reportMatchFailures) {
               matchFailed("\"C\"");
             }
           }
-          if (result7 !== null) {
-            var result1 = result7;
+          if (result8 !== null) {
+            var result1 = result8;
           } else {
             if (input.substr(pos, 1) === "D") {
-              var result6 = "D";
+              var result7 = "D";
               pos += 1;
             } else {
-              var result6 = null;
+              var result7 = null;
               if (reportMatchFailures) {
                 matchFailed("\"D\"");
               }
             }
-            if (result6 !== null) {
-              var result1 = result6;
+            if (result7 !== null) {
+              var result1 = result7;
             } else {
               if (input.substr(pos, 1) === "F") {
-                var result5 = "F";
+                var result6 = "F";
                 pos += 1;
               } else {
-                var result5 = null;
+                var result6 = null;
                 if (reportMatchFailures) {
                   matchFailed("\"F\"");
                 }
               }
-              if (result5 !== null) {
-                var result1 = result5;
+              if (result6 !== null) {
+                var result1 = result6;
               } else {
                 if (input.substr(pos, 1) === "I") {
-                  var result4 = "I";
+                  var result5 = "I";
                   pos += 1;
                 } else {
-                  var result4 = null;
+                  var result5 = null;
                   if (reportMatchFailures) {
                     matchFailed("\"I\"");
                   }
                 }
-                if (result4 !== null) {
-                  var result1 = result4;
+                if (result5 !== null) {
+                  var result1 = result5;
                 } else {
-                  if (input.substr(pos, 1) === "S") {
-                    var result3 = "S";
+                  if (input.substr(pos, 1) === "J") {
+                    var result4 = "J";
                     pos += 1;
                   } else {
-                    var result3 = null;
+                    var result4 = null;
                     if (reportMatchFailures) {
-                      matchFailed("\"S\"");
+                      matchFailed("\"J\"");
                     }
                   }
-                  if (result3 !== null) {
-                    var result1 = result3;
+                  if (result4 !== null) {
+                    var result1 = result4;
                   } else {
-                    if (input.substr(pos, 1) === "Z") {
-                      var result2 = "Z";
+                    if (input.substr(pos, 1) === "S") {
+                      var result3 = "S";
                       pos += 1;
                     } else {
-                      var result2 = null;
+                      var result3 = null;
                       if (reportMatchFailures) {
-                        matchFailed("\"Z\"");
+                        matchFailed("\"S\"");
                       }
                     }
-                    if (result2 !== null) {
-                      var result1 = result2;
+                    if (result3 !== null) {
+                      var result1 = result3;
                     } else {
-                      var result1 = null;;
+                      if (input.substr(pos, 1) === "Z") {
+                        var result2 = "Z";
+                        pos += 1;
+                      } else {
+                        var result2 = null;
+                        if (reportMatchFailures) {
+                          matchFailed("\"Z\"");
+                        }
+                      }
+                      if (result2 !== null) {
+                        var result1 = result2;
+                      } else {
+                        var result1 = null;;
+                      };
                     };
                   };
                 };

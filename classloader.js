@@ -26,7 +26,7 @@ Class = function(){};
  * The bootstrap class loader used by the VM. It searches for classes
  * at the given url
  */
-BootstrapClassloader = function(base_url/*: String*/) {
+BootstrapClassloader = function(base_urls/*: Array[String]*/) {
   // this map contain the classes already loaded by this class loader
   // String -> Class
   this.classes = {};
@@ -35,17 +35,31 @@ BootstrapClassloader = function(base_url/*: String*/) {
     // only load the class if not loaded yet
     if(this.classes[name] === undefined) {
       var xhr = new XMLHttpRequest();
-      xhr.open("GET", base_url + '/' + name + '.class', false);
-      xhr.send(null);
-      if(xhr.status == 200) {
-        // TODO this is firefox specific
-        this.classes[name] = this.parse(xhr.mozResponseArrayBuffer);
-      } else if(xhr.status == 404) {
-        throw new NoClassDefFoundError(name);
-      } else {
-        // TODO throw VM error
+      var found = false;
+      for(var i in base_urls) {
+        var base_url = base_urls[i];
+        xhr.open("GET", base_url + '/' + name + '.class', false);
+        xhr.send(null);
+        if(xhr.status == 200) {
+          // TODO this is firefox specific
+          var start = new Date().getTime();
+          var clazz = this.parse(xhr.mozResponseArrayBuffer);
+          document.write('<b>Time to parse class file: ' + (new Date().getTime() - start) + 'ms</b><br />');
+          // link the class
+          clazz.link(this);
+          // the class was loaded by this classloader
+          clazz.classloader = this;
+          this.classes[name] = clazz
+          found = true;
+          break;
+        } else if(xhr.status != 404) {
+          throw new Error("Ooooops: " + xhr);
+        }
       }
 
+      if(!found && xhr.status == 404) {
+        throw new NoClassDefFoundError(name);
+      } 
     }
   };
 };
@@ -400,7 +414,7 @@ BootstrapClassloader.prototype.parseAttributes = function(buffer/*: ArrayBuffer*
 };
 
 /* Links the class object with the runtime */
-Class.prototype.link = function(frame/*: Frame*/) {
+Class.prototype.link = function(classloader/*: ClassLoader*/) {
   var constants = this.constants;
   for(var i in constants) {
     var constant = constants[i];
@@ -411,7 +425,6 @@ Class.prototype.link = function(frame/*: Frame*/) {
           throw new Error('Class constant must reference an UTF8 name.');
         }
         constant.name = ref.value;
-        constant.class_type = DescriptorParser.parse(ref.value, 'field_descriptor');
         break;
       case CONSTANT_Fieldref:
         if(constants[constant.class_index - 1].type != CONSTANT_Class) {
@@ -427,7 +440,7 @@ Class.prototype.link = function(frame/*: Frame*/) {
         }
         // set the resolved field type name
         constant.field_type = DescriptorParser.parse(descriptor.value, 'field_descriptor');
-        var name = constants[constants[name_and_type_index.name_index - 1] - 1];
+        var name = constants[name_and_type.name_index - 1];
         if(name.type !== CONSTANT_Utf8) {
           throw new Error('Name must be a string');
         }
@@ -455,8 +468,8 @@ Class.prototype.link = function(frame/*: Frame*/) {
         var meth_descriptor = DescriptorParser.parse(descriptor.value, 'method_descriptor');
         constant.method_param_types = meth_descriptor.param_types;
         constant.method_return_type = meth_descriptor.return_type;
-        var name = constants[constants[name_and_type_index.name_index - 1] - 1];
-        if(name.type !== CONSTANT_Utf8) {
+        var name = constants[name_and_type.name_index - 1];
+        if(name === undefined || name.type !== CONSTANT_Utf8) {
           throw new Error('Name must be a string');
         }
         if(name.value.charAt(0) === '<' && name.value !== '<init>') {
@@ -504,7 +517,7 @@ Class.prototype.link = function(frame/*: Frame*/) {
         constant.value = ref.value;
         break;
       case CONSTANT_NameAndType:
-        var name = constants[constants[name_and_type_index.name_index - 1] - 1];
+        var name = constants[name_and_type.name_index - 1];
         if(name.type !== CONSTANT_Utf8) {
           throw new Error('Name must be a string');
         }
@@ -516,7 +529,40 @@ Class.prototype.link = function(frame/*: Frame*/) {
         constant.descriptor = descriptor;
         break;
       default:
-        throw new Error('Unknown constant type: ' + constant.type);
+        // do nothing
     }
   }
+
+  // the class name
+  var clazz = constants[this.this_class - 1];
+  if(clazz.type != CONSTANT_Class) {
+    throw new Error('This must reference a class.');
+  }
+  this.this_name = clazz.name;
+
+  // the direct super class
+  // java.lang.Object has no super class
+  if(this.super_class != 0) {
+    clazz = constants[this.super_class - 1];
+    if(clazz.type != CONSTANT_Class) {
+      throw new Error('Super must reference a class.');
+    }
+    this.super_name = clazz.name;
+    // resolve super class name
+    classloader.loadClass(clazz.name);
+    // check that this is a class
+    var super_acc = classloader.classes[clazz.name].access_flags;
+    if(super_acc & ACC_INTERFACE) {
+      throw new Error('Super class may not be an interface');
+    } 
+    // check that super class is not final
+    if(super_acc & ACC_FINAL) {
+      throw new Error('Cannot extend a final class');
+    }
+    // TODO if super class is abstract or an interface check that all abstract methods are implemented
+    // TODO check that no final method are overwritten
+  }
+
+  var methods = this.methods;
 }
+

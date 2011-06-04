@@ -10,7 +10,7 @@ field_descriptor
   / ('[' type:start {return {'type': 'array', 'of': type}})
 
 primitive_type
-  = type:('B' / 'C' / 'D' / 'F' / 'I' / 'S' / 'Z') { return {'type': type}}
+  = type:('B' / 'C' / 'D' / 'F' / 'I' / 'J' / 'S' / 'Z') { return {'type': type}}
 
 void
   = 'V' {return {'type': 'void'}}
