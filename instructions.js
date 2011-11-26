@@ -215,6 +215,9 @@ T_BYTE = 8;
 T_SHORT = 9;
 T_INT = 10;
 T_LONG = 11;
+// gniehvm specific
+T_REFERENCE = 12;
+T_ARRAY = 13;
 
 parseInstructions = function(input/*: DataView*/, length/*: int*/, clazz/*: Class*/) {
   var offset = 0;

@@ -3,7 +3,7 @@ GniehVM = function(options/*: Array[String]*/) {
     var xhr = new XMLHttpRequest();
     xhr.open("GET", url, false);
     xhr.send(null);
-  }
+  };
 }
 
 decompile = function(name/*: String*/, urls/*Array[String]*/) {
@@ -44,10 +44,10 @@ decompile = function(name/*: String*/, urls/*Array[String]*/) {
     document.write('Methods:<br />');
     var methods = clazz.methods;
     for(var name in methods) {
-      print_flags(methods[name].access_flags)
+      print_flags(methods[name].access_flags);
       document.write(name.replace('<', '&lt;') + '<br />');
     }
-}
+};
 
 print_flags = function(flags/*: int*/) {
     if(flags & ACC_PUBLIC) {
@@ -77,7 +77,7 @@ print_flags = function(flags/*: int*/) {
     if(flags & ACC_TRANSIENT) {
       document.write('transient ');
     }
-}
+};
 
 const CONST_POS_INFINITY = '+Infinity';
 const CONST_NEG_INFINITY = '-Infinity';

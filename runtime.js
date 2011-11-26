@@ -1,4 +1,4 @@
-Frame = function(stack_size/*: int*/, classloader:/*: ClassLoader*/) {
+Frame = function(stack_size/*: int*/, classloader/*: ClassLoader*/) {
   // the program counter for this frame
   this.pc = 0;
   // the stack for this frame

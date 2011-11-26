@@ -54,7 +54,7 @@ BootstrapClassloader = function(base_urls/*: Array[String]*/) {
           clazz.link(this, already_seen);
           // the class was loaded by this classloader
           clazz.classloader = this;
-          this.classes[name] = clazz
+          this.classes[name] = clazz;
           found = true;
           break;
         } else if(xhr.status != 404) {
@@ -84,7 +84,7 @@ const CONSTANT_Utf8 = 1;
 
 // modifiers
 const ACC_PUBLIC = 0x0001;
-const ACC_PRIVATE = 0x0002
+const ACC_PRIVATE = 0x0002;
 const ACC_PROTECTED = 0x0004;
 const ACC_STATIC = 0x0008;
 const ACC_FINAL = 0x0010;
@@ -525,7 +525,7 @@ Class.prototype.link = function(classloader/*: ClassLoader*/, already_seen/*: Ar
         constant.value = ref.value;
         break;
       case CONSTANT_NameAndType:
-        var name = constants[name_and_type.name_index - 1];
+        var name = constants[constant.name_index - 1];
         if(name.type !== CONSTANT_Utf8) {
           throw new Error('Name must be a string');
         }
