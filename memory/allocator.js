@@ -153,12 +153,10 @@ Allocator = function(memory/* : ArrayBuffer */, max_size/* : int */) {
   };
 
   /** Frees the memory at the given address. */
-  this.free(address/* : int */)
-  {
+  this.free = function(address/* : int */) {
     // get the size
     var size = memory_view.getUint32(address - 4);
     memfree(address - 4, size + 4);
-  }
-  ;
+  };
 
 };
